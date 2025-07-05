@@ -29,22 +29,28 @@ jobs:
         AZURE_DEVOPS_REPO: ${{ secrets.AZURE_DEVOPS_REPO }}
       run: |
         AZURE_URL="dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
-        git clone --mirror "https://:$AZURE_DEVOPS_PAT@$AZURE_URL" azure_repo.git
+        git clone "https://:$AZURE_DEVOPS_PAT@$AZURE_URL" azure_repo.git
 
         cd azure_repo.git
 
-        for branch in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+        for branch in $(git branch -r | grep -v '\->' | grep -v 'origin/HEAD' | sed 's/ *origin\///'); do
           echo "Syncing branch: $branch"
 
-          # Checkout Azure Repo branch
-          git checkout "$branch"
+          # Checkout branch (create if missing)
+          if git show-ref --quiet refs/heads/"$branch"; then
+            git checkout "$branch"
+          else
+            git checkout -b "$branch" "origin/$branch"
+          fi
 
-          # Merge GitHub branch content into Azure Repo branch
+          # Merge GitHub repo branch content
           git remote add github-origin "../../"
           git fetch github-origin "$branch"
 
           git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch" -m "Merge GitHub branch '$branch' into Azure Repo"
           git push origin "$branch"
+
+          git remote remove github-origin
         done
 
     - name: Cleanup
