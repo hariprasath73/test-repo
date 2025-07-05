@@ -1,4 +1,4 @@
-name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ SAFE & CLEAN)
+name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ GREP-FIXED)
 
 on:
   workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
