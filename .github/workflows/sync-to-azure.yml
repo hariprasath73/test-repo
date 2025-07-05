@@ -1,9 +1,9 @@
 name: Sync GitHub → Azure DevOps (All Branches, Scheduled + Manual)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
   schedule:
-    - cron: '0 * * * *'  # Every hour automatically (adjust as needed)
+    - cron: '0 * * * *'  # ✅ Auto-sync every hour (adjust as needed)
 
 jobs:
   sync:
@@ -13,13 +13,13 @@ jobs:
     - name: Checkout GitHub Repository (initial checkout)
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 0  # ✅ Fetch all history and branches
 
     - name: Fetch All GitHub Branches (Force Full Fetch)
       run: |
         git remote set-url origin "${{ github.repositoryUrl }}"
         git fetch --all
-        git branch -a  # Debugging: show all branches
+        git branch -a  # ✅ Debug: show all branches
 
     - name: Set up Git Config
       run: |
@@ -41,6 +41,7 @@ jobs:
         echo "Branches found in GitHub repo:"
         git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'
 
+        # ✅ Loop through all GitHub branches and sync to Azure Repo
         for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'); do
           branch_name="${branch#origin/}"
           echo "Syncing GitHub branch: $branch_name"
