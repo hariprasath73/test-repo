@@ -16,12 +16,6 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Test Network Connectivity (Debug)
-      run: |
-        ping -c 4 github.com || true
-        curl -I https://github.com || true
-        curl -I https://dev.azure.com || true
-
     - name: Set up Git Config
       run: |
         git config --global user.email "sync-bot@yourdomain.com"
@@ -38,20 +32,19 @@ jobs:
         git clone --mirror "https://:$AZURE_DEVOPS_PAT@$AZURE_URL" azure_repo.git
 
         cd azure_repo.git
-        git remote add github-origin "${{ github.repositoryUrl }}"
-        git fetch github-origin --prune
 
-        for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/github-origin/); do
+        for branch in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
           echo "Syncing branch: $branch"
 
-          if git show-ref --quiet refs/heads/"${branch##github-origin/}"; then
-            git checkout "${branch##github-origin/}"
-          else
-            git checkout -b "${branch##github-origin/}"
-          fi
+          # Checkout Azure Repo branch
+          git checkout "$branch"
+
+          # Merge GitHub branch content into Azure Repo branch
+          git remote add github-origin "../../"
+          git fetch github-origin "$branch"
 
           git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch" -m "Merge GitHub branch '$branch' into Azure Repo"
-          git push origin "${branch##github-origin/}"
+          git push origin "$branch"
         done
 
     - name: Cleanup
