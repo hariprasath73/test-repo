@@ -1,4 +1,4 @@
-name: Sync GitHub → Azure DevOps (All Branches, Scheduled + Manual)
+name: Sync GitHub → Azure DevOps (All Branches, Scheduled + Manual - FIXED ✅)
 
 on:
   workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
@@ -10,16 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout GitHub Repository (initial checkout)
+    - name: Checkout GitHub Repository (all branches)
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # ✅ Fetch all history and branches
+        fetch-depth: 0  # ✅ Fetch entire history & all branches
 
-    - name: Fetch All GitHub Branches (Force Full Fetch)
+    - name: Fetch All GitHub Branches (Critical Step)
       run: |
-        git remote set-url origin "${{ github.repositoryUrl }}"
         git fetch --all
-        git branch -a  # ✅ Debug: show all branches
+        git branch -a  # ✅ Debugging: list fetched branches
 
     - name: Set up Git Config
       run: |
@@ -39,22 +38,21 @@ jobs:
         cd azure_repo.git
 
         echo "Branches found in GitHub repo:"
-        git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'
+        git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/heads/
 
-        # ✅ Loop through all GitHub branches and sync to Azure Repo
-        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'); do
-          branch_name="${branch#origin/}"
-          echo "Syncing GitHub branch: $branch_name"
+        # ✅ Loop through all local GitHub branches and sync to Azure Repo
+        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/heads/); do
+          echo "Syncing GitHub branch: $branch"
 
-          if git show-ref --quiet refs/heads/"$branch_name"; then
-            git checkout "$branch_name"
+          if git show-ref --quiet refs/heads/"$branch"; then
+            git checkout "$branch"
           else
-            git checkout -b "$branch_name"
+            git checkout -b "$branch"
           fi
 
-          git fetch ".." "$branch_name"
-          git merge FETCH_HEAD --allow-unrelated-histories --strategy=recursive --strategy-option=theirs -m "Merge GitHub branch '$branch_name' into Azure Repo"
-          git push origin "$branch_name"
+          git fetch ".." "$branch"
+          git merge FETCH_HEAD --allow-unrelated-histories --strategy=recursive --strategy-option=theirs -m "Merge GitHub branch '$branch' into Azure Repo"
+          git push origin "$branch"
         done
 
     - name: Cleanup
