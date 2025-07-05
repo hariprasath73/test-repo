@@ -36,15 +36,13 @@ jobs:
         for branch in $(git branch -r | grep -v '\->' | grep -v 'origin/HEAD' | sed 's/ *origin\///'); do
           echo "Syncing branch: $branch"
 
-          # Checkout branch (create if missing)
           if git show-ref --quiet refs/heads/"$branch"; then
             git checkout "$branch"
           else
             git checkout -b "$branch" "origin/$branch"
           fi
 
-          # Merge GitHub repo branch content
-          git remote add github-origin "../../"
+          git remote add github-origin ".."
           git fetch github-origin "$branch"
 
           git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch" -m "Merge GitHub branch '$branch' into Azure Repo"
