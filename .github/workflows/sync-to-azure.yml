@@ -1,10 +1,10 @@
-name: Sync GitHub → Azure DevOps (All Branches Full Sync)
+name: Sync GitHub → Azure DevOps (All Branches, One-Way Sync)
 
 on:
   push:
     branches:
-      - '**'
-  workflow_dispatch:
+      - '**'  # Trigger on any branch push
+  workflow_dispatch:  # Allow manual trigger too
 
 jobs:
   sync:
@@ -14,12 +14,12 @@ jobs:
     - name: Checkout GitHub Repository (all branches)
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Required for history
+        fetch-depth: 0  # Required to fetch entire history and branches
 
-    - name: Fetch All GitHub Branches (Critical Step!)
+    - name: Fetch All GitHub Branches (Critical Step)
       run: |
         git fetch --all
-        git branch -r
+        git branch -r  # Debugging: list fetched branches
 
     - name: Set up Git Config
       run: |
@@ -38,18 +38,19 @@ jobs:
 
         cd azure_repo.git
 
-        # List ALL GitHub branches and sync them to Azure Repo
-        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/); do
+        # Loop through all GitHub branches (excluding HEAD), sync them to Azure Repo
+        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'); do
           branch_name="${branch#origin/}"
           echo "Syncing GitHub branch: $branch_name"
 
-          # Checkout or create the branch in Azure Repo
+          # Checkout or create branch in Azure Repo
           if git show-ref --quiet refs/heads/"$branch_name"; then
             git checkout "$branch_name"
           else
             git checkout -b "$branch_name"
           fi
 
+          # Merge GitHub changes into Azure Repo
           git remote add github-origin ".."
           git fetch github-origin "$branch_name"
 
