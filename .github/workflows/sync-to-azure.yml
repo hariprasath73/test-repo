@@ -1,4 +1,4 @@
-name: Sync GitHub → Azure DevOps (All Branches, FINAL FIXED SOLUTION)
+name: Sync GitHub → Azure DevOps (All Branches - FINAL FINAL FIXED ✅)
 
 on:
   push:
@@ -51,13 +51,11 @@ jobs:
             git checkout -b "$branch"
           fi
 
-          git remote add github-origin ".."
+          git fetch ".." "$branch"
 
-          git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch" -m "Merge GitHub branch '$branch' into Azure Repo"
+          git merge FETCH_HEAD --allow-unrelated-histories --strategy=recursive --strategy-option=theirs -m "Merge GitHub branch '$branch' into Azure Repo"
 
           git push origin "$branch"
-
-          git remote remove github-origin
         done
 
     - name: Cleanup
