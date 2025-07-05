@@ -1,45 +1,71 @@
-name: Sync GitHub → Azure DevOps (Exact Branch Mirror Sync ✅)
+name: Sync to Azure DevOps
 
 on:
-  workflow_dispatch:  # ✅ Manual trigger
   push:
     branches:
-      - main           # ✅ Auto-sync on pushes to main branch (adjust as needed)
-  schedule:
-    - cron: '0 * * * *'  # ✅ Scheduled every hour (adjust if needed)
+      - '**' # Trigger on push to any branch
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout GitHub Repository (all branches)
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # ✅ Fetch entire history and all branches
+      - name: Checkout GitHub repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history and branches
 
-    - name: Fetch All GitHub Branches and Push to Azure DevOps (Exact Mirror Sync)
-      env:
-        AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
-        AZURE_DEVOPS_ORG: ${{ secrets.AZURE_DEVOPS_ORG }}
-        AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
-        AZURE_DEVOPS_REPO: ${{ secrets.AZURE_DEVOPS_REPO }}
-      run: |
-        git remote set-url origin "${{ github.repositoryUrl }}"
-        git fetch --all
+      - name: Set up Git
+        run: |
+          git config --global user.email "sync@github.com"
+          git config --global user.name "GitHub Actions Sync"
 
-        AZURE_URL="https://$AZURE_DEVOPS_PAT@dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
+      - name: Sync branches to Azure DevOps
+        env:
+          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
+          AZURE_DEVOPS_ORG: ${{ secrets.AZURE_DEVOPS_ORG }}
+          AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
+          AZURE_DEVOPS_REPO: ${{ secrets.AZURE_DEVOPS_REPO }}
+        run: |
+          # Azure DevOps repository URL with PAT
+          AZURE_REPO_URL="https://$AZURE_DEVOPS_PAT@dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
 
-        echo "Branches found:"
-        git branch -r | awk '{print $1}'
+          # Clone Azure DevOps repository
+          git clone --mirror $AZURE_REPO_URL azure_repo
+          cd azure_repo
 
-        for branch in $(git branch -r | awk '{print $1}'); do
-          case "$branch" in
-            *'->'* ) continue ;;  # Skip symbolic refs like HEAD
-          esac
-          branch_name="${branch#origin/}"
-          echo "Syncing branch: $branch_name"
+          # Fetch all branches from GitHub
+          git fetch origin --prune
 
-          git checkout "$branch_name" || git checkout -b "$branch_name" "$branch"
-          git push --force "$AZURE_URL" "refs/heads/$branch_name:refs/heads/$branch_name"
-        done
+          # Get list of all GitHub branches
+          BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | sed 's/origin\///')
+
+          # Sync each branch
+          for BRANCH in $BRANCHES; do
+            echo "Syncing branch: $BRANCH"
+
+            # Checkout or create branch in Azure DevOps repo
+            git checkout -B $BRANCH origin/$BRANCH 2>/dev/null || git checkout -b $BRANCH
+
+            # Fetch Azure DevOps branch (if exists) to identify Azure-only files
+            git fetch $AZURE_REPO_URL $BRANCH:refs/remotes/azure/$BRANCH 2>/dev/null
+
+            # Merge to preserve Azure-only files
+            if git show-ref --quiet refs/remotes/azure/$BRANCH; then
+              git merge azure/$BRANCH --strategy=ours --no-edit || true
+            fi
+
+            # Apply files from GitHub branch
+            git checkout origin/$BRANCH -- .
+            git add .
+
+            # Commit changes
+            git commit -m "Sync from GitHub branch $BRANCH" || true
+
+            # Push to Azure DevOps
+            git push $AZURE_REPO_URL $BRANCH
+          done
+
+          # Clean up
+          cd ..
+          rm -rf azure_repo
