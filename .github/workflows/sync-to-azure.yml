@@ -1,4 +1,4 @@
-name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ FINAL)
+name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ FINAL-FIXED)
 
 on:
   workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
@@ -18,14 +18,14 @@ jobs:
       with:
         fetch-depth: 0  # ✅ Fetch full history of the triggering branch (main)
 
-    - name: Fetch All GitHub Branches and Create Local Branches Safely
+    - name: Fetch All GitHub Branches and Create Local Branches Safely (Filter Unwanted)
       run: |
         git fetch origin  # ✅ Fetch all remote branches from GitHub
         echo "Remote branches:"
         git for-each-ref --format='%(refname:short)' refs/remotes/origin/
 
-        # ✅ Safely create local branches for all remote branches
-        for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'); do
+        # ✅ Safely create local branches from remote branches (skip HEAD & origin/origin)
+        for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v -E 'origin/HEAD|origin/origin'); do
           branch_name="${branch#origin/}"
           if git show-ref --quiet refs/heads/"$branch_name"; then
             echo "Branch $branch_name already exists, skipping."
