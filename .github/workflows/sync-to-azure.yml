@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug trigger
+        run: echo "Triggered by branch: ${{ github.ref_name }}"
+
       - name: Checkout GitHub repository
         uses: actions/checkout@v4
         with:
