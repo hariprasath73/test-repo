@@ -1,10 +1,10 @@
-name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ FIXED)
+name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ FINAL)
 
 on:
   workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
   push:
     branches:
-      - main           # ✅ Auto trigger on pushes to main branch (adjust if needed)
+      - main           # ✅ Auto trigger on pushes to main branch
   schedule:
     - cron: '0 * * * *'  # ✅ Auto-sync every hour (adjust as needed)
 
@@ -16,19 +16,23 @@ jobs:
     - name: Checkout GitHub Repository (initial checkout)
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # ✅ Fetch full history of triggering branch (main)
+        fetch-depth: 0  # ✅ Fetch full history of the triggering branch (main)
 
-    - name: Fetch All GitHub Branches and Create Local Branches
+    - name: Fetch All GitHub Branches and Create Local Branches Safely
       run: |
         git fetch origin  # ✅ Fetch all remote branches from GitHub
         echo "Remote branches:"
         git for-each-ref --format='%(refname:short)' refs/remotes/origin/
 
-        # ✅ Create local branches from remote branches
+        # ✅ Safely create local branches for all remote branches
         for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD'); do
           branch_name="${branch#origin/}"
-          echo "Creating local branch: $branch_name"
-          git branch "$branch_name" "$branch"
+          if git show-ref --quiet refs/heads/"$branch_name"; then
+            echo "Branch $branch_name already exists, skipping."
+          else
+            echo "Creating local branch: $branch_name"
+            git branch "$branch_name" "$branch"
+          fi
         done
 
     - name: Set up Git Config
