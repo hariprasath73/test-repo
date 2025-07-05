@@ -38,7 +38,7 @@ jobs:
         for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/github-origin/); do
           echo "Syncing branch: $branch"
 
-          # Checkout Azure Repo branch (or create if missing)
+          # Checkout Azure Repo branch (or create it if missing)
           if git show-ref --quiet refs/heads/"${branch##github-origin/}"; then
             git checkout "${branch##github-origin/}"
           else
