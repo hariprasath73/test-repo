@@ -38,8 +38,8 @@ jobs:
           git remote add github https://github.com/${{ github.repository }}.git
           git fetch github --prune
 
-          # Get list of all GitHub branches (exclude HEAD)
-          BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/github | grep -v 'github/HEAD' | sed 's#github/##')
+          # Get list of all GitHub branches (exclude invalid refs like github/HEAD and github)
+          BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/github | grep -v 'github/HEAD' | grep -E 'github/[a-zA-Z0-9_-]+$' | sed 's#github/##')
 
           # Sync each branch
           for BRANCH in $BRANCHES; do
