@@ -2,8 +2,8 @@ name: Sync to Azure DevOps
 
 on:
   push:
-    branches-ignore:
-      - none # Trigger on push to any branch by ignoring none
+    branches:
+      - '**' # Trigger on push to any branch
 
 jobs:
   sync:
