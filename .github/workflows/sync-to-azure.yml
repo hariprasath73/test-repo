@@ -1,10 +1,10 @@
-name: Sync GitHub → Azure DevOps (All Branches, One-Way Sync, Fixed)
+name: Sync GitHub → Azure DevOps (All Branches, Final Fix)
 
 on:
   push:
     branches:
-      - '**'  # Auto-trigger on push to any branch
-  workflow_dispatch:  # Allow manual trigger too
+      - '**'
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -41,21 +41,18 @@ jobs:
         echo "Branches found:"
         git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD' | grep -v '^origin$'
 
-        # Loop through all valid GitHub branches (skip origin/HEAD and invalid entries)
+        # Loop through all valid GitHub branches
         for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD' | grep -v '^origin$'); do
           branch_name="${branch#origin/}"
           echo "Syncing GitHub branch: $branch_name"
 
-          # Checkout or create branch in Azure Repo
           if git show-ref --quiet refs/heads/"$branch_name"; then
             git checkout "$branch_name"
           else
             git checkout -b "$branch_name"
           fi
 
-          # Merge GitHub branch changes into Azure Repo branch
           git remote add github-origin ".."
-          git fetch github-origin "$branch_name"
 
           git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch_name" -m "Merge GitHub branch '$branch_name' into Azure Repo"
 
