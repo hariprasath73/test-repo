@@ -1,9 +1,9 @@
-name: Sync to Azure DevOps
+name: Sync GitHub → Azure DevOps (Per-Branch Sync, Preserve Azure Files ✅)
 
 on:
   push:
     branches:
-      - '*' # Trigger on push to any branch
+      - '*'  # ✅ Trigger on push to any branch
 
 jobs:
   sync:
@@ -13,63 +13,47 @@ jobs:
       - name: Checkout GitHub repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history and branches
+          fetch-depth: 0  # ✅ Fetch all history and branches
 
       - name: Set up Git
         run: |
           git config --global user.email "sync@github.com"
           git config --global user.name "GitHub Actions Sync"
 
-      - name: Sync branches to Azure DevOps
+      - name: Sync current branch to Azure DevOps (Preserve Azure Files)
         env:
           AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
           AZURE_DEVOPS_ORG: ${{ secrets.AZURE_DEVOPS_ORG }}
           AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
           AZURE_DEVOPS_REPO: ${{ secrets.AZURE_DEVOPS_REPO }}
         run: |
-          # Azure DevOps repository URL with PAT
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Syncing current branch: $CURRENT_BRANCH"
+
+          # Azure DevOps repo URL with PAT
           AZURE_REPO_URL="https://$AZURE_DEVOPS_PAT@dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
 
-          # Clone Azure DevOps repository
+          # Clone Azure DevOps repo
           git clone $AZURE_REPO_URL azure_repo
           cd azure_repo
 
-          # Add GitHub as a remote to fetch branches
+          # Checkout or create the branch in Azure DevOps repo
+          git checkout -B "$CURRENT_BRANCH" origin/"$CURRENT_BRANCH" 2>/dev/null || git checkout -b "$CURRENT_BRANCH"
+
+          # Add GitHub repo as remote
           git remote add github https://github.com/${{ github.repository }}.git
-          git fetch github --prune
+          git fetch github
 
-          # Get list of all GitHub branches (exclude HEAD and invalid refs)
-          BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/github | grep -E 'github/[a-zA-Z0-9_-]+$' | grep -v 'github/HEAD' | sed 's#github/##')
+          # Merge GitHub branch into Azure DevOps branch, preserving Azure-only files
+          git merge --strategy=recursive --strategy-option=theirs "github/$CURRENT_BRANCH" --no-edit || true
 
-          # Sync each branch
-          for BRANCH in $BRANCHES; do
-            echo "Syncing branch: $BRANCH"
+          # Commit if there are any changes
+          git add .
+          git commit -m "Sync from GitHub branch $CURRENT_BRANCH (preserve Azure-only files)" || true
 
-            # Create or checkout the branch in Azure DevOps repo
-            git checkout -B $BRANCH
+          # Push only current branch
+          git push origin "$CURRENT_BRANCH"
 
-            # Reset to match GitHub branch exactly
-            git reset --hard github/$BRANCH
-
-            # Fetch Azure DevOps branch (if exists) to identify Azure-only files
-            git fetch origin $BRANCH:refs/remotes/origin/$BRANCH 2>/dev/null || true
-
-            # If Azure branch exists, merge to preserve Azure-only files
-            if git show-ref --quiet refs/remotes/origin/$BRANCH; then
-              git merge origin/$BRANCH --strategy=ours --no-edit || true
-            fi
-
-            # Commit any changes (if needed)
-            git add .
-            git commit -m "Sync from GitHub branch $BRANCH" || true
-
-            # Push to Azure DevOps (explicitly push only the current branch)
-            git push origin refs/heads/$BRANCH:refs/heads/$BRANCH
-          done
-
-          # Delete any unwanted branches in Azure DevOps (e.g., heads/origin)
-          git push origin --delete heads/origin 2>/dev/null || true
-
-          # Clean up
+          # Cleanup
           cd ..
           rm -rf azure_repo
