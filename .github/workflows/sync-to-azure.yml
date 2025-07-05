@@ -1,7 +1,10 @@
-name: Sync GitHub → Azure DevOps (All Branches, Scheduled + Manual - FIXED ✅)
+name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅)
 
 on:
   workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
+  push:
+    branches:
+      - main           # ✅ Auto trigger on pushes to main branch (adjust if needed)
   schedule:
     - cron: '0 * * * *'  # ✅ Auto-sync every hour (adjust as needed)
 
