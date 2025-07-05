@@ -31,39 +31,40 @@ jobs:
           AZURE_REPO_URL="https://$AZURE_DEVOPS_PAT@dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
 
           # Clone Azure DevOps repository
-          git clone --mirror $AZURE_REPO_URL azure_repo
+          git clone $AZURE_REPO_URL azure_repo
           cd azure_repo
 
-          # Fetch all branches from GitHub
-          git fetch origin --prune
+          # Add GitHub as a remote to fetch branches
+          git remote add github https://github.com/${{ github.repository }}.git
+          git fetch github --prune
 
           # Get list of all GitHub branches
-          BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | sed 's/origin\///')
+          BRANCHES=$(git for-each-ref --format='%(refname:short)' refs/remotes/github | sed 's/github\///')
 
           # Sync each branch
           for BRANCH in $BRANCHES; do
             echo "Syncing branch: $BRANCH"
 
-            # Checkout or create branch in Azure DevOps repo
-            git checkout -B $BRANCH origin/$BRANCH 2>/dev/null || git checkout -b $BRANCH
+            # Create or checkout the branch in Azure DevOps repo
+            git checkout -B $BRANCH
+
+            # Reset to match GitHub branch exactly
+            git reset --hard github/$BRANCH
 
             # Fetch Azure DevOps branch (if exists) to identify Azure-only files
-            git fetch $AZURE_REPO_URL $BRANCH:refs/remotes/azure/$BRANCH 2>/dev/null
+            git fetch origin $BRANCH:refs/remotes/origin/$BRANCH 2>/dev/null || true
 
-            # Merge to preserve Azure-only files
-            if git show-ref --quiet refs/remotes/azure/$BRANCH; then
-              git merge azure/$BRANCH --strategy=ours --no-edit || true
+            # If Azure branch exists, merge to preserve Azure-only files
+            if git show-ref --quiet refs/remotes/origin/$BRANCH; then
+              git merge origin/$BRANCH --strategy=ours --no-edit || true
             fi
 
-            # Apply files from GitHub branch
-            git checkout origin/$BRANCH -- .
+            # Commit any changes (if needed)
             git add .
-
-            # Commit changes
             git commit -m "Sync from GitHub branch $BRANCH" || true
 
             # Push to Azure DevOps
-            git push $AZURE_REPO_URL $BRANCH
+            git push origin $BRANCH
           done
 
           # Clean up
