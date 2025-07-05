@@ -1,80 +1,45 @@
-name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ CLEAN FINAL)
+name: Sync GitHub → Azure DevOps (Exact Branch Mirror Sync ✅)
 
 on:
-  workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
+  workflow_dispatch:  # ✅ Manual trigger
   push:
     branches:
-      - main           # ✅ Auto trigger on pushes to main branch
+      - main           # ✅ Auto-sync on pushes to main branch (adjust as needed)
   schedule:
-    - cron: '0 * * * *'  # ✅ Auto-sync every hour (adjust as needed)
+    - cron: '0 * * * *'  # ✅ Scheduled every hour (adjust if needed)
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout GitHub Repository (initial checkout)
+    - name: Checkout GitHub Repository (all branches)
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # ✅ Fetch full history of the triggering branch (main)
+        fetch-depth: 0  # ✅ Fetch entire history and all branches
 
-    - name: Fetch All GitHub Branches and Create Local Branches (Final Clean Filter)
-      run: |
-        git fetch origin  # ✅ Fetch all remote branches from GitHub
-        echo "Remote branches:"
-        git branch -r
-
-        # ✅ Safely create local branches from remote branches (skip HEAD, symbolic refs, literal 'origin')
-        for branch in $(git branch -r | awk '{print $1}'); do
-          case "$branch" in
-            origin/HEAD ) continue ;;  # Skip HEAD symbolic ref
-            origin ) continue ;;       # Skip literal 'origin' (caused heads/origin)
-            *'->'* ) continue ;;       # Skip symbolic refs
-          esac
-
-          branch_name="${branch#origin/}"
-          if git show-ref --quiet refs/heads/"$branch_name"; then
-            echo "Branch $branch_name already exists, skipping."
-          else
-            echo "Creating local branch: $branch_name"
-            git branch "$branch_name" "$branch"
-          fi
-        done
-
-    - name: Set up Git Config
-      run: |
-        git config --global user.email "sync-bot@yourdomain.com"
-        git config --global user.name "GitHub to Azure Sync Bot"
-
-    - name: Clone Azure DevOps Repository
+    - name: Fetch All GitHub Branches and Push to Azure DevOps (Exact Mirror Sync)
       env:
         AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
         AZURE_DEVOPS_ORG: ${{ secrets.AZURE_DEVOPS_ORG }}
         AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
         AZURE_DEVOPS_REPO: ${{ secrets.AZURE_DEVOPS_REPO }}
       run: |
-        AZURE_URL="dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
-        git clone "https://:$AZURE_DEVOPS_PAT@$AZURE_URL" azure_repo.git
+        git remote set-url origin "${{ github.repositoryUrl }}"
+        git fetch --all
 
-        cd azure_repo.git
+        AZURE_URL="https://$AZURE_DEVOPS_PAT@dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
 
-        echo "Branches found in GitHub repo:"
-        git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/heads/
+        echo "Branches found:"
+        git branch -r | awk '{print $1}'
 
-        # ✅ Loop through all local GitHub branches and sync to Azure Repo
-        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/heads/); do
-          echo "Syncing GitHub branch: $branch"
+        for branch in $(git branch -r | awk '{print $1}'); do
+          case "$branch" in
+            *'->'* ) continue ;;  # Skip symbolic refs like HEAD
+          esac
+          branch_name="${branch#origin/}"
+          echo "Syncing branch: $branch_name"
 
-          if git show-ref --quiet refs/heads/"$branch"; then
-            git checkout "$branch"
-          else
-            git checkout -b "$branch"
-          fi
-
-          git fetch ".." "$branch"
-          git merge FETCH_HEAD --allow-unrelated-histories --strategy=recursive --strategy-option=theirs -m "Merge GitHub branch '$branch' into Azure Repo"
-          git push origin "$branch"
+          git checkout "$branch_name" || git checkout -b "$branch_name" "$branch"
+          git push --force "$AZURE_URL" "refs/heads/$branch_name:refs/heads/$branch_name"
         done
-
-    - name: Cleanup
-      run: rm -rf azure_repo.git
