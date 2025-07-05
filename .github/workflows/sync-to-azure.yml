@@ -2,14 +2,17 @@ name: Sync to Azure DevOps
 
 on:
   push:
-    branches:
-      - '**' # Trigger on push to any branch, including all possible branch names
+    branches-ignore:
+      - none # Trigger on push to any branch by ignoring none
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug trigger
+        run: echo "Triggered by branch: ${{ github.ref_name }}"
+
       - name: Checkout GitHub repository
         uses: actions/checkout@v4
         with:
