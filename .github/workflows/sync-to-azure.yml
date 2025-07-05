@@ -3,8 +3,8 @@ name: Sync GitHub → Azure DevOps
 on:
   push:
     branches:
-      - '**'  # Automatically trigger on push to any branch
-  workflow_dispatch:  # Allow manual trigger too
+      - '**'
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -14,7 +14,7 @@ jobs:
     - name: Checkout GitHub Repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Fetch all branches and history
+        fetch-depth: 0
 
     - name: Set up Git Config
       run: |
@@ -28,7 +28,7 @@ jobs:
         AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
         AZURE_DEVOPS_REPO: ${{ secrets.AZURE_DEVOPS_REPO }}
       run: |
-        AZURE_URL="https://dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
+        AZURE_URL="dev.azure.com/$AZURE_DEVOPS_ORG/$AZURE_DEVOPS_PROJECT/_git/$AZURE_DEVOPS_REPO"
         git clone --mirror "https://:$AZURE_DEVOPS_PAT@$AZURE_URL" azure_repo.git
 
         cd azure_repo.git
@@ -38,16 +38,13 @@ jobs:
         for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/github-origin/); do
           echo "Syncing branch: $branch"
 
-          # Checkout Azure Repo branch (or create it if missing)
           if git show-ref --quiet refs/heads/"${branch##github-origin/}"; then
             git checkout "${branch##github-origin/}"
           else
             git checkout -b "${branch##github-origin/}"
           fi
 
-          # Merge GitHub changes INTO Azure Repo branch (preserve Azure-only files)
           git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch" -m "Merge GitHub branch '$branch' into Azure Repo"
-
           git push origin "${branch##github-origin/}"
         done
 
