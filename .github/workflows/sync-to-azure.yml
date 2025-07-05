@@ -1,4 +1,4 @@
-name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ GREP-FIXED)
+name: Sync GitHub → Azure DevOps (All Branches, Manual + Push + Scheduled ✅ GREP-FREE)
 
 on:
   workflow_dispatch:  # ✅ Manual trigger from GitHub Actions UI
@@ -18,14 +18,21 @@ jobs:
       with:
         fetch-depth: 0  # ✅ Fetch full history of the triggering branch (main)
 
-    - name: Fetch All GitHub Branches and Create Local Branches (Safe Grep Fix)
+    - name: Fetch All GitHub Branches and Create Local Branches (GREP-FREE Solution)
       run: |
         git fetch origin  # ✅ Fetch all remote branches from GitHub
         echo "Remote branches:"
-        git branch -r | grep -v '->' | grep '^origin/' | grep -v '^origin/HEAD$'
+        git branch -r
 
-        # ✅ Safely create local branches from remote branches (skip HEAD, symbolic links, weird refs)
-        for branch in $(git branch -r | grep -v '->' | grep '^origin/' | grep -v '^origin/HEAD$' | awk '{print $1}'); do
+        # ✅ Safely create local branches from remote branches (skip symbolic HEADs automatically)
+        for branch in $(git branch -r | awk '{print $1}'); do
+          case "$branch" in
+            *'->'* ) continue ;;  # Skip symbolic refs like 'origin/HEAD -> origin/main'
+          esac
+          if [[ "$branch" == origin/HEAD ]]; then
+            continue  # Skip HEAD symbolic reference explicitly
+          fi
+
           branch_name="${branch#origin/}"
           if git show-ref --quiet refs/heads/"$branch_name"; then
             echo "Branch $branch_name already exists, skipping."
