@@ -1,9 +1,6 @@
 name: Sync to Azure DevOps
 
-on:
-  push:
-    branches:
-      - '**' # Trigger on push to any branch
+on: push
 
 jobs:
   sync:
