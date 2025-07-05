@@ -16,6 +16,12 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Test Network Connectivity (Debug)
+      run: |
+        ping -c 4 github.com || true
+        curl -I https://github.com || true
+        curl -I https://dev.azure.com || true
+
     - name: Set up Git Config
       run: |
         git config --global user.email "sync-bot@yourdomain.com"
