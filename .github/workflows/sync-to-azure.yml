@@ -1,4 +1,4 @@
-name: Sync GitHub → Azure DevOps (All Branches, Final Fix)
+name: Sync GitHub → Azure DevOps (All Branches, FINAL FIXED SOLUTION)
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     - name: Fetch All GitHub Branches (Critical Step)
       run: |
         git fetch --all
-        git branch -r  # Debugging: list fetched branches
+        git branch -a  # Debugging: list fetched branches
 
     - name: Set up Git Config
       run: |
@@ -38,25 +38,24 @@ jobs:
 
         cd azure_repo.git
 
-        echo "Branches found:"
-        git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD' | grep -v '^origin$'
+        echo "Branches found in GitHub repo:"
+        git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/heads/
 
-        # Loop through all valid GitHub branches
-        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v 'origin/HEAD' | grep -v '^origin$'); do
-          branch_name="${branch#origin/}"
-          echo "Syncing GitHub branch: $branch_name"
+        # Loop through all local GitHub branches
+        for branch in $(git --git-dir=../.git for-each-ref --format='%(refname:short)' refs/heads/); do
+          echo "Syncing GitHub branch: $branch"
 
-          if git show-ref --quiet refs/heads/"$branch_name"; then
-            git checkout "$branch_name"
+          if git show-ref --quiet refs/heads/"$branch"; then
+            git checkout "$branch"
           else
-            git checkout -b "$branch_name"
+            git checkout -b "$branch"
           fi
 
           git remote add github-origin ".."
 
-          git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch_name" -m "Merge GitHub branch '$branch_name' into Azure Repo"
+          git merge --allow-unrelated-histories --strategy=recursive --strategy-option=theirs "github-origin/$branch" -m "Merge GitHub branch '$branch' into Azure Repo"
 
-          git push origin "$branch_name"
+          git push origin "$branch"
 
           git remote remove github-origin
         done
